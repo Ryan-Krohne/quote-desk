@@ -4,6 +4,7 @@ import { withSupabase } from 'npm:@supabase/server@1'
 
 import { generateQuote } from '../_shared/claude.ts'
 import { errorJson, json, one, readJson } from '../_shared/http.ts'
+import { maybeNotify } from '../_shared/notify.ts'
 
 // Prices one quote (docs/contract.md, section 9). Called only by other
 // functions, with the project's secret key in the apikey header.
@@ -16,6 +17,16 @@ import { errorJson, json, one, readJson } from '../_shared/http.ts'
 
 const MIN_CONFIDENCE = 0.7
 
+// Calls the homeowner if they asked and this was the last quote to finish.
+// deno-lint-ignore no-explicit-any
+async function notifyQuietly(db: any, jobId: string) {
+  try {
+    await maybeNotify(db, jobId)
+  } catch (error) {
+    console.error(`Notify failed for job ${jobId}`, error)
+  }
+}
+
 Deno.serve(
   withSupabase({ auth: 'secret' }, async (request, { supabaseAdmin: db }) => {
     const body = await readJson(request)
@@ -24,7 +35,7 @@ Deno.serve(
 
     const { data: quote, error: quoteError } = await db
       .from('quotes')
-      .select('id, status, business_id, jobs (trade, description, facts, zip_code), businesses (name, trade)')
+      .select('id, status, job_id, business_id, jobs (trade, description, facts, zip_code), businesses (name, trade)')
       .eq('id', quoteId)
       .maybeSingle()
     if (quoteError) return errorJson(quoteError.message, 500)
@@ -78,6 +89,7 @@ Deno.serve(
           confidence,
         })
         .eq('id', quoteId)
+      await notifyQuietly(db, quote.job_id)
       return json({ status: 'declined' })
     }
 
@@ -108,6 +120,7 @@ Deno.serve(
       })
       .eq('id', quoteId)
     if (updateError) return errorJson(updateError.message, 500)
+    await notifyQuietly(db, quote.job_id)
     return json({ status: 'quoted' })
   })
 )

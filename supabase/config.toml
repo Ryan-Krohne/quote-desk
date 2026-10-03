@@ -24,3 +24,6 @@ verify_jwt = false
 
 [functions.confirm-booking]
 verify_jwt = false
+
+[functions.call-webhook]
+verify_jwt = false

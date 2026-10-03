@@ -74,7 +74,9 @@ Add new folders here as they are created (Edge Functions, web app).
 ### Edge Functions
 
 - Every function checks its caller with `@supabase/server` (`withSupabase`), so all have `verify_jwt = false` in `supabase/config.toml`. `quote-engine` takes the project's secret key in the `apikey` header; other functions start it with `startQuoteEngine` in `_shared/quote-engine-client.ts`.
-- Secrets to set: `ANTHROPIC_API_KEY`, `STRIPE_PAYMENT_LINK_URL`, `STRIPE_SECRET_KEY`. Supabase provides the URL and keys.
+- Secrets to set: `ANTHROPIC_API_KEY` (workspace-scoped key), `STRIPE_SECRET_KEY` (test mode only; the code refuses live keys), `SITE_URL` (web app URL for the Stripe success page), `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `NOTIFY_ALLOWED_NUMBERS`. Optional: `QUOTE_DESK_FEE_PERCENT` (default 5). Supabase provides the URL and keys.
+- Phone callback (`notify_me` MCP tool): when every quote for a job is final, `_shared/notify.ts` calls the homeowner with Twilio, reads the best quote and offers "press 1 to book". `call-webhook` (Twilio-signed requests only) books it and texts the Stripe link. Calls and texts go **only** to numbers in `NOTIFY_ALLOWED_NUMBERS`. Phone numbers live in `job_notifications` (service role only) and are deleted when the call ends.
+- Booking (`_shared/checkout.ts`): Stripe Checkout for the quote's high price (not-to-exceed) plus the Quote Desk service fee.
 - Type-check: `npx deno check --config supabase/functions/mcp/deno.json supabase/functions/<name>/index.ts`.
 - Edge Functions have time limits. Do not wait inside a function for an owner's answer. Set the quote to `waiting_for_owner`, then end the function. When the owner answers, run the quote again.
 

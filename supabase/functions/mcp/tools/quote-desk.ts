@@ -2,8 +2,11 @@ import type { McpServer } from 'npm:@modelcontextprotocol/server@2.0.0'
 import { z } from 'npm:zod@4.6.5'
 
 import { missingFacts, TRADE_NAMES, TRADES } from '../../_shared/trades.ts'
+import { bookQuote } from '../../_shared/checkout.ts'
 import { one } from '../../_shared/http.ts'
+import { maybeNotify } from '../../_shared/notify.ts'
 import { startQuoteEngine } from '../../_shared/quote-engine-client.ts'
+import { isAllowedNumber, normalizePhone } from '../../_shared/twilio.ts'
 import { errorResult, jsonResult, runtimeErrorResult } from './result.ts'
 import type { ToolContext } from './types.ts'
 
@@ -151,7 +154,8 @@ export function registerQuoteDeskTools(server: McpServer, { supabase, supabaseAd
           .from('quotes')
           .select(
             'id, status, low_price, high_price, conditions, reasons, confidence, decline_reason, ' +
-              'businesses (name), owner_questions (question, answered_at, created_at)'
+              'businesses (name), owner_questions (question, answered_at, created_at), ' +
+              'bookings (status, service_amount, fee_amount, total_amount, payment_url)'
           )
           .eq('job_id', job_id)
           .order('created_at')
@@ -176,6 +180,13 @@ export function registerQuoteDeskTools(server: McpServer, { supabase, supabaseAd
                 (oq) => oq.answered_at === null
               )?.question ?? null,
             decline_reason: q.decline_reason,
+            booking: one(q.bookings)
+              ? {
+                  status: one(q.bookings).status,
+                  total_amount: one(q.bookings).total_amount,
+                  payment_url: one(q.bookings).status === 'paid' ? null : one(q.bookings).payment_url,
+                }
+              : null,
           })),
         })
       } catch (error) {
@@ -189,46 +200,59 @@ export function registerQuoteDeskTools(server: McpServer, { supabase, supabaseAd
     {
       description:
         'Book a quote the homeowner chose. The quote must have status "quoted". Returns a Stripe test-mode ' +
-        'payment_url for the deposit; give it to the homeowner.',
+        'payment_url. The total is the quote\'s not-to-exceed price (high end of the range) plus the Quote Desk ' +
+        'service fee; tell the homeowner both amounts, then give them the link.',
       inputSchema: z.object({ quote_id: z.string().uuid() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ quote_id }) => {
       try {
-        const paymentLink = Deno.env.get('STRIPE_PAYMENT_LINK_URL')
-        if (!paymentLink) return errorResult('Booking is not set up yet: STRIPE_PAYMENT_LINK_URL is missing.')
-
         // RLS: the homeowner can read only quotes for their own jobs
-        const { data: quote, error } = await supabase.from('quotes').select('id, status').eq('id', quote_id).maybeSingle()
+        const { data: quote, error } = await supabase.from('quotes').select('id').eq('id', quote_id).maybeSingle()
         if (error) throw error
         if (!quote) return errorResult('Quote not found.')
-        if (quote.status !== 'quoted') return errorResult(`This quote cannot be booked yet. Its status is ${quote.status}.`)
+        return jsonResult(await bookQuote(supabaseAdmin, quote_id, userClaims.id))
+      } catch (error) {
+        return runtimeErrorResult(error)
+      }
+    }
+  )
 
-        const { data: existing, error: existingError } = await supabaseAdmin
-          .from('bookings')
-          .select('id, status')
-          .eq('quote_id', quote_id)
-          .maybeSingle()
-        if (existingError) throw existingError
-
-        let booking = existing
-        if (!booking) {
-          const { data, error: insertError } = await supabaseAdmin
-            .from('bookings')
-            .insert({ quote_id, homeowner_user_id: userClaims.id })
-            .select('id, status')
-            .single()
-          if (insertError) throw insertError
-          booking = data
+  server.registerTool(
+    'notify_me',
+    {
+      description:
+        'Call the homeowner when every quote for a job is final. Only use this if the homeowner asks to be ' +
+        'called back, and ask them for their phone number first. The call reads the best quote and lets them ' +
+        'press 1 to book; the payment link is then texted to them. The number is deleted after the call.',
+      inputSchema: z.object({
+        job_id: z.string().uuid(),
+        phone_number: z.string().min(7).max(20).describe('The number the homeowner gave, for example +14155550123.'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ job_id, phone_number }) => {
+      try {
+        const phone = normalizePhone(phone_number)
+        if (!phone) return errorResult('That does not look like a phone number. Ask for it with the country code.')
+        if (!isAllowedNumber(phone)) {
+          return errorResult('Callbacks are limited to the demo phone number right now. Tell the homeowner the quotes will be in this chat.')
         }
 
-        const url = new URL(paymentLink)
-        url.searchParams.set('client_reference_id', quote_id)
-        return jsonResult({
-          booking_id: booking.id,
-          status: booking.status,
-          payment_url: booking.status === 'paid' ? null : url.toString(),
-        })
+        const { data: job, error } = await supabase.from('jobs').select('id').eq('id', job_id).maybeSingle()
+        if (error) throw error
+        if (!job) return errorResult('Job not found.')
+
+        const { error: upsertError } = await supabaseAdmin
+          .from('job_notifications')
+          .upsert({ job_id, phone, status: 'waiting', call_sid: null }, { onConflict: 'job_id' })
+        if (upsertError) throw upsertError
+
+        // If every quote is already final, call now.
+        const work = maybeNotify(supabaseAdmin, job_id).catch((e) => console.error('notify failed', e))
+        ;(globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(work)
+
+        return jsonResult({ job_id, will_call: `***${phone.slice(-4)}`, when: 'when every quote is final' })
       } catch (error) {
         return runtimeErrorResult(error)
       }

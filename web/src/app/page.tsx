@@ -36,10 +36,10 @@ export default function Home() {
           firm quote with reasons, or a question the owner answers once.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button size="lg" render={<Link href="/dashboard" />}>
+          <Button size="lg" nativeButton={false} render={<Link href="/dashboard" />}>
             Owner dashboard <ArrowRightIcon />
           </Button>
-          <Button size="lg" variant="outline" render={<Link href="/board" />}>
+          <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/board" />}>
             Quote board
           </Button>
         </div>

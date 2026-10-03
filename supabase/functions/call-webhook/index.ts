@@ -19,10 +19,27 @@ const twiml = (body: string) => new Response(`<Response>${body}</Response>`, { h
 Deno.serve(
   withSupabase({ auth: 'none' }, async (request, { supabaseAdmin: db }) => {
     const url = new URL(request.url)
-    // Twilio signs the public URL it called, not the internal one.
-    const publicUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/call-webhook${url.search}`
     const params = new URLSearchParams(await request.text())
-    if (!(await isFromTwilio(request, publicUrl, params))) return new Response('Forbidden', { status: 403 })
+    // Twilio signs the public URL it called. The function sees an internal URL, so
+    // rebuild the public one, with and without the default port Twilio may include.
+    const base = `${Deno.env.get('SUPABASE_URL')}/functions/v1/call-webhook`
+    const host = new URL(base).host
+    const candidates = [
+      `${base}${url.search}`,
+      `${base.replace(host, `${host}:443`)}${url.search}`,
+      request.url,
+    ]
+    let verified = false
+    for (const candidate of candidates) {
+      if (await isFromTwilio(request, candidate, params)) {
+        verified = true
+        break
+      }
+    }
+    if (!verified) {
+      console.error('Twilio signature did not match', { requestUrl: request.url, tried: candidates.length })
+      return new Response('Forbidden', { status: 403 })
+    }
 
     const step = url.searchParams.get('step')
     const jobId = url.searchParams.get('job_id')

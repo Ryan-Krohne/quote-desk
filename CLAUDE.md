@@ -24,6 +24,11 @@ Quote Desk lets an AI agent (Claude) get firm quotes from home service businesse
 docs/                    Design docs
 supabase/migrations/     SQL migrations, named <UTC timestamp>_<name>.sql
 supabase/seed.sql        Demo businesses and pricing rules (fake data)
+supabase/functions/mcp/  MCP server Edge Function (from the MCP server block); tools in tools/
+supabase/functions/quote-engine/, speech-to-rules/, answer-question/, confirm-booking/
+                         Edge Functions from docs/contract.md, section 9
+supabase/functions/_shared/  Trades and facts, Claude API calls, quote-engine trigger
+supabase/config.toml     CLI config: OAuth server settings, verify_jwt = false for mcp
 web/                     SvelteKit app: owner dashboard, quote board, booking success page
 ```
 
@@ -31,7 +36,8 @@ web/                     SvelteKit app: owner dashboard, quote board, booking su
 
 - SvelteKit 3, Svelte 5 (runes), Tailwind 4, DaisyUI 5, JavaScript (no TypeScript). SvelteKit config is in `web/vite.config.js`.
 - Client-only: `ssr = false` in `src/routes/+layout.js`. Use the shared client in `src/lib/supabase.js`.
-- Env: copy `web/.env.example` to `web/.env`. Only `PUBLIC_` values go in the browser.
+- Env: copy `web/.env.example` to `web/.env`. Only `PUBLIC_` values go in the browser. SvelteKit 3 only exposes vars declared in `src/env.js`; import them from `$app/env/public` (not `$env/static/public`).
+- `/oauth/consent` is the OAuth consent screen that claude.ai sends users to when it connects to the MCP server.
 - Deployed with `@sveltejs/adapter-vercel`. The Vercel project's root directory is `web`.
 - Run: `cd web && npm install && npm run dev`.
 
@@ -65,6 +71,9 @@ Add new folders here as they are created (Edge Functions, web app).
 
 ### Edge Functions
 
+- Every function checks its caller with `@supabase/server` (`withSupabase`), so all have `verify_jwt = false` in `supabase/config.toml`. `quote-engine` takes the project's secret key in the `apikey` header; other functions start it with `startQuoteEngine` in `_shared/quote-engine-client.ts`.
+- Secrets to set: `ANTHROPIC_API_KEY`, `STRIPE_PAYMENT_LINK_URL`, `STRIPE_SECRET_KEY`. Supabase provides the URL and keys.
+- Type-check: `npx deno check --config supabase/functions/mcp/deno.json supabase/functions/<name>/index.ts`.
 - Edge Functions have time limits. Do not wait inside a function for an owner's answer. Set the quote to `waiting_for_owner`, then end the function. When the owner answers, run the quote again.
 
 ## MCP tools (the agent interface)

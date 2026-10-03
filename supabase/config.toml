@@ -1,0 +1,26 @@
+# Supabase CLI config. Only the settings this project changes from the defaults.
+project_id = "nfcqdolutopapucpgyah"
+
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = true
+
+# The MCP server checks tokens itself, so the OAuth discovery request can reach it unauthenticated.
+[functions.mcp]
+verify_jwt = false
+
+# These functions check the caller themselves with @supabase/server:
+# quote-engine needs the secret key, confirm-booking is public (Stripe is the proof),
+# and the dashboard functions need a signed-in user.
+[functions.quote-engine]
+verify_jwt = false
+
+[functions.speech-to-rules]
+verify_jwt = false
+
+[functions.answer-question]
+verify_jwt = false
+
+[functions.confirm-booking]
+verify_jwt = false

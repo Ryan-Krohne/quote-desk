@@ -44,16 +44,12 @@ export function say(text: string): string {
   return `<Say voice="Polly.Joanna">${escapeXml(text)}</Say>`
 }
 
-export async function placeCall(to: string, twiml: string, statusCallback: string): Promise<string> {
+// Twilio fetches the call script from scriptUrl. (Trial accounts reject inline
+// Twiml and StatusCallback, so the script and the clean-up both live in call-webhook.)
+export async function placeCall(to: string, scriptUrl: string): Promise<string> {
   assertAllowed(to)
   const { from } = config()
-  const call = await twilioPost('Calls.json', {
-    To: to,
-    From: from,
-    Twiml: twiml,
-    StatusCallback: statusCallback,
-    StatusCallbackEvent: 'completed',
-  })
+  const call = await twilioPost('Calls.json', { To: to, From: from, Url: scriptUrl })
   return call.sid
 }
 

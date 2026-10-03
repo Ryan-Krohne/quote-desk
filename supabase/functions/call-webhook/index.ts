@@ -3,12 +3,15 @@ import 'jsr:@supabase/functions-js@2.108.2/edge-runtime.d.ts'
 import { withSupabase } from 'npm:@supabase/server@1'
 
 import { bookQuote } from '../_shared/checkout.ts'
+import { callScript } from '../_shared/notify.ts'
 import { isFromTwilio, say, sendText } from '../_shared/twilio.ts'
 
 // Twilio webhooks for the homeowner's call (see _shared/notify.ts).
+// - step=script: the call was answered. Returns what Quote Desk says.
 // - step=gather: the key the homeowner pressed. 1 books the best quote and texts
 //   the Stripe test-mode payment link (allowlisted numbers only, see twilio.ts).
-// - step=status: the call ended. Deletes the phone number.
+// - step=done: no key pressed. Says goodbye.
+// The phone number is deleted at the end of every path.
 // No Supabase auth: Twilio signs every request, and the signature is checked.
 
 const twiml = (body: string) => new Response(`<Response>${body}</Response>`, { headers: { 'Content-Type': 'text/xml' } })
@@ -25,20 +28,34 @@ Deno.serve(
     const jobId = url.searchParams.get('job_id')
     if (!jobId) return new Response('job_id is required', { status: 400 })
 
-    if (step === 'status') {
-      await db.from('job_notifications').delete().eq('job_id', jobId)
-      return new Response(null, { status: 204 })
+    const forgetNumber = () => db.from('job_notifications').delete().eq('job_id', jobId)
+
+    if (step === 'script') {
+      try {
+        return new Response(await callScript(db, jobId), { headers: { 'Content-Type': 'text/xml' } })
+      } catch (error) {
+        console.error('Call script failed', error)
+        await forgetNumber()
+        return twiml(say('Sorry, something went wrong. Your quotes are in your Claude chat. Goodbye.'))
+      }
+    }
+
+    if (step === 'done') {
+      await forgetNumber()
+      return twiml(say('No problem. Your quotes are waiting in your Claude chat. Goodbye.'))
     }
 
     const quoteId = url.searchParams.get('quote_id')
     if (step !== 'gather' || !quoteId) return new Response('Unknown step', { status: 400 })
 
     if (params.get('Digits') !== '1') {
+      await forgetNumber()
       return twiml(say('No problem. Your quotes are waiting in your Claude chat. Goodbye.'))
     }
 
     const { data: notification } = await db.from('job_notifications').select('phone').eq('job_id', jobId).maybeSingle()
     const { data: job } = await db.from('jobs').select('homeowner_user_id').eq('id', jobId).maybeSingle()
+    await forgetNumber()
     if (!job) return twiml(say('Sorry, we could not find your job. Please book in your Claude chat. Goodbye.'))
 
     let booking

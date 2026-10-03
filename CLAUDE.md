@@ -24,7 +24,16 @@ Quote Desk lets an AI agent (Claude) get firm quotes from home service businesse
 docs/                    Design docs
 supabase/migrations/     SQL migrations, named <UTC timestamp>_<name>.sql
 supabase/seed.sql        Demo businesses and pricing rules (fake data)
+web/                     SvelteKit app: owner dashboard, quote board, booking success page
 ```
+
+### Web app (`web/`)
+
+- SvelteKit 3, Svelte 5 (runes), Tailwind 4, DaisyUI 5, JavaScript (no TypeScript). SvelteKit config is in `web/vite.config.js`.
+- Client-only: `ssr = false` in `src/routes/+layout.js`. Use the shared client in `src/lib/supabase.js`.
+- Env: copy `web/.env.example` to `web/.env`. Only `PUBLIC_` values go in the browser.
+- Deployed with `@sveltejs/adapter-vercel`. The Vercel project's root directory is `web`.
+- Run: `cd web && npm install && npm run dev`.
 
 Add new folders here as they are created (Edge Functions, web app).
 

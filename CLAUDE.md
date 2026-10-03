@@ -29,17 +29,19 @@ supabase/functions/quote-engine/, speech-to-rules/, answer-question/, confirm-bo
                          Edge Functions from docs/contract.md, section 9
 supabase/functions/_shared/  Trades and facts, Claude API calls, quote-engine trigger
 supabase/config.toml     CLI config: OAuth server settings, verify_jwt = false for mcp
-web/                     SvelteKit app: owner dashboard, quote board, booking success page
+web/                     Next.js app: owner dashboard, quote board, booking success, OAuth consent
 ```
 
 ### Web app (`web/`)
 
-- SvelteKit 3, Svelte 5 (runes), Tailwind 4, DaisyUI 5, JavaScript (no TypeScript). SvelteKit config is in `web/vite.config.js`.
-- Client-only: `ssr = false` in `src/routes/+layout.js`. Use the shared client in `src/lib/supabase.js`.
-- Env: copy `web/.env.example` to `web/.env`. Only `PUBLIC_` values go in the browser. SvelteKit 3 only exposes vars declared in `src/env.js`; import them from `$app/env/public` (not `$env/static/public`).
-- `/oauth/consent` is the OAuth consent screen that claude.ai sends users to when it connects to the MCP server.
-- Deployed with `@sveltejs/adapter-vercel`. The Vercel project's root directory is `web`.
-- Run: `cd web && npm install && npm run dev`.
+- Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind 4, shadcn/ui (`base-nova` style, Base UI primitives: use the `render` prop, not `asChild`). Add components with `npx shadcn@latest add <name>`.
+- Next.js 16 has breaking changes. Read `web/node_modules/next/dist/docs/` before using an unfamiliar API (see `web/AGENTS.md`).
+- Client-only data: every page that reads Supabase is a Client Component and uses the shared client in `src/lib/supabase.ts`. The session lives in localStorage, and RLS applies to every read and Realtime event. `useSearchParams` needs a `<Suspense>` boundary.
+- Call Edge Functions with `invokeFunction` (`src/lib/functions.ts`), which returns the function's `{ error }` message.
+- Pages: `/` (pitch), `/dashboard` (owner: voice pricing rules, live questions), `/board` (stage: newest job and its quotes, live), `/booking/success` (Stripe redirect, calls `confirm-booking`), `/oauth/consent` (claude.ai connector sign-in).
+- Env: copy `web/.env.example` to `web/.env.local`. Only `NEXT_PUBLIC_` values go in the browser.
+- Node 22 or 24. Run: `cd web && npm install && npm run dev -- --port 3000` (port 3000 matches the Supabase Site URL while testing locally).
+- Deploy on Vercel with root directory `web`.
 
 Add new folders here as they are created (Edge Functions, web app).
 

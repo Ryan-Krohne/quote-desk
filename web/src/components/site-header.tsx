@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 
+import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { useSession } from "@/hooks/use-session"
 import { supabase } from "@/lib/supabase"
@@ -12,8 +13,8 @@ export function SiteHeader() {
   return (
     <header className="border-b">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-        <Link href="/" className="font-semibold tracking-tight">
-          Quote Desk
+        <Link href="/" aria-label="Quote Desk home">
+          <Logo />
         </Link>
         <nav className="flex gap-4 text-sm text-muted-foreground">
           <Link href="/dashboard" className="hover:text-foreground">

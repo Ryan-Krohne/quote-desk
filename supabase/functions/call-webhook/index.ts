@@ -4,7 +4,7 @@ import { withSupabase } from 'npm:@supabase/server@1'
 
 import { bookQuote } from '../_shared/checkout.ts'
 import { callScript } from '../_shared/notify.ts'
-import { isFromTwilio, say, sendText } from '../_shared/twilio.ts'
+import { hasCallbackKey, isFromTwilio, say, sendText } from '../_shared/twilio.ts'
 
 // Twilio webhooks for the homeowner's call (see _shared/notify.ts).
 // - step=script: the call was answered. Returns what Quote Desk says.
@@ -12,7 +12,8 @@ import { isFromTwilio, say, sendText } from '../_shared/twilio.ts'
 //   the Stripe test-mode payment link (allowlisted numbers only, see twilio.ts).
 // - step=done: no key pressed. Says goodbye.
 // The phone number is deleted at the end of every path.
-// No Supabase auth: Twilio signs every request, and the signature is checked.
+// No Supabase auth. A request is trusted if Twilio's signature matches, or if its
+// URL carries the job's callback key, which only our own code can make.
 
 const twiml = (body: string) => new Response(`<Response>${body}</Response>`, { headers: { 'Content-Type': 'text/xml' } })
 
@@ -29,8 +30,8 @@ Deno.serve(
       `${base.replace(host, `${host}:443`)}${url.search}`,
       request.url,
     ]
-    let verified = false
-    for (const candidate of candidates) {
+    let verified = await hasCallbackKey(url.searchParams.get('job_id') ?? '', url.searchParams.get('key'))
+    for (const candidate of verified ? [] : candidates) {
       if (await isFromTwilio(request, candidate, params)) {
         verified = true
         break

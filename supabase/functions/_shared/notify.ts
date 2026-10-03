@@ -4,7 +4,7 @@
 // the call ends. Only numbers on NOTIFY_ALLOWED_NUMBERS are ever called (twilio.ts).
 
 import { feeFor } from './checkout.ts'
-import { placeCall, say } from './twilio.ts'
+import { callbackKey, placeCall, say } from './twilio.ts'
 
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -15,8 +15,10 @@ function dollars(amount: number): string {
   return `${amount.toLocaleString('en-US')} dollars`
 }
 
-export function webhookUrl(params: Record<string, string>): string {
-  return `${Deno.env.get('SUPABASE_URL')}/functions/v1/call-webhook?${new URLSearchParams(params)}`
+// Every callback URL carries the job's callback key (see twilio.ts).
+export async function webhookUrl(params: Record<string, string> & { job_id: string }): Promise<string> {
+  const query = new URLSearchParams({ ...params, key: await callbackKey(params.job_id) })
+  return `${Deno.env.get('SUPABASE_URL')}/functions/v1/call-webhook?${query}`
 }
 
 // Places the call once every quote is final. Twilio then fetches the script
@@ -38,7 +40,7 @@ export async function maybeNotify(db: Db, jobId: string): Promise<void> {
   if (!claimed) return
 
   try {
-    const callSid = await placeCall(claimed.phone, webhookUrl({ step: 'script', job_id: jobId }))
+    const callSid = await placeCall(claimed.phone, await webhookUrl({ step: 'script', job_id: jobId }))
     await db.from('job_notifications').update({ call_sid: callSid }).eq('job_id', jobId)
   } catch (callError) {
     console.error(`Call for job ${jobId} failed`, callError)
@@ -62,7 +64,7 @@ export async function callScript(db: Db, jobId: string): Promise<string> {
     .sort((a: any, b: any) => a.high_price - b.high_price || a.low_price - b.low_price)
   // deno-lint-ignore no-explicit-any
   const name = (q: any) => (Array.isArray(q.businesses) ? q.businesses[0]?.name : q.businesses?.name) ?? 'a local business'
-  const done = webhookUrl({ step: 'done', job_id: jobId }).replace(/&/g, '&amp;')
+  const done = (await webhookUrl({ step: 'done', job_id: jobId })).replace(/&/g, '&amp;')
 
   if (quoted.length === 0) {
     return `<Response>${say(
@@ -82,7 +84,7 @@ export async function callScript(db: Db, jobId: string): Promise<string> {
     `To book ${name(best)}, press 1. We will text you a payment link for ${dollars(best.high_price + fee)}: ` +
     `the not-to-exceed price of ${dollars(best.high_price)}, plus our ${dollars(fee)} service fee. ` +
     'To skip, press 2.'
-  const action = webhookUrl({ step: 'gather', job_id: jobId, quote_id: best.id }).replace(/&/g, '&amp;')
+  const action = (await webhookUrl({ step: 'gather', job_id: jobId, quote_id: best.id })).replace(/&/g, '&amp;')
   return (
     `<Response>${say(intro)}` +
     `<Gather numDigits="1" timeout="8" action="${action}" method="POST">${say(offer)}</Gather>` +

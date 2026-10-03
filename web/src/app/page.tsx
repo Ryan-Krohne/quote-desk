@@ -14,9 +14,10 @@ import { CopyButton } from "@/components/copy-button"
 import { LogoMark } from "@/components/logo"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { SUPABASE_PROJECT_URL } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 
-const MCP_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/mcp`
+const MCP_URL = `${SUPABASE_PROJECT_URL}/functions/v1/mcp`
 
 // Entrance animation (tw-animate-css), staggered with delay-*.
 const rise = "animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-700"

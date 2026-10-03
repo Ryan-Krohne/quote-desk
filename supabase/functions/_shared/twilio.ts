@@ -59,19 +59,39 @@ export async function sendText(to: string, body: string): Promise<void> {
   await twilioPost('Messages.json', { To: to, From: from, Body: body })
 }
 
+async function hmacHex(secret: string, message: string, hash: 'SHA-1' | 'SHA-256'): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash }, false, ['sign'])
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message)))
+}
+
+function sameString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+// A secret per job, put in the callback URLs we give Twilio. Only someone with the
+// Twilio auth token can make one, so call-webhook can trust a URL that carries it.
+export async function callbackKey(jobId: string): Promise<string> {
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')
+  if (!token) throw new Error('TWILIO_AUTH_TOKEN is not set.')
+  const mac = await hmacHex(token, `quote-desk-call:${jobId}`, 'SHA-256')
+  return Array.from(mac, (b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
+}
+
+export async function hasCallbackKey(jobId: string, key: string | null): Promise<boolean> {
+  return !!key && sameString(key, await callbackKey(jobId))
+}
+
 // Checks X-Twilio-Signature: base64(HMAC-SHA1(auth token, url + sorted form params)).
 export async function isFromTwilio(request: Request, url: string, params: URLSearchParams): Promise<boolean> {
   const signature = request.headers.get('X-Twilio-Signature')
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')
   if (!signature || !token) return false
   const data = url + [...params.keys()].sort().map((k) => k + params.get(k)).join('')
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(token), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign'])
-  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data)))
-  const expected = btoa(String.fromCharCode(...mac))
-  if (expected.length !== signature.length) return false
-  let diff = 0
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i)
-  return diff === 0
+  const expected = btoa(String.fromCharCode(...(await hmacHex(token, data, 'SHA-1'))))
+  return sameString(expected, signature)
 }
 
 export function normalizePhone(input: string): string | null {

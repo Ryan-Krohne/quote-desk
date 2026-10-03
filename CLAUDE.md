@@ -6,7 +6,7 @@ Quote Desk lets an AI agent (Claude) get firm quotes from home service businesse
 
 **The design doc is the source of truth:** `docs/quote-desk-solution-design.md`. Read it before starting any feature. If the code needs to differ from it, say so and update the doc in the same change.
 
-**The task list is `docs/TASKS.md`.** Check it before starting work. When you finish a task, tick it in the same change. When you find new work, add it.
+**Work is tracked in GitHub Issues** (https://github.com/burkybang/supabase-select-2026-hackathon/issues). Check the issues before starting work.
 
 ## Stack
 
@@ -21,7 +21,7 @@ Quote Desk lets an AI agent (Claude) get firm quotes from home service businesse
 ## Repo layout
 
 ```
-docs/                    Design doc and task list
+docs/                    Design docs
 supabase/migrations/     SQL migrations, named <UTC timestamp>_<name>.sql
 supabase/seed.sql        Demo businesses and pricing rules (fake data)
 ```
@@ -88,4 +88,4 @@ If the claude.ai connector or OAuth does not work within the agreed time box, sw
 
 ## Open decisions
 
-Tracked in section 0 of `docs/TASKS.md`.
+See section 13 of the design doc and GitHub Issues.

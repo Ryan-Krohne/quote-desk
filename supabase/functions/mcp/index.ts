@@ -45,7 +45,8 @@ const SERVER_INSTRUCTIONS =
   'request_quotes, and call get_quotes until all_final is true (businesses may first need to ask ' +
   'their owner a question). Rank the quotes for the homeowner and explain why, using each ' +
   "quote's reasons and conditions. Call book_quote only after the homeowner chooses a quote, and " +
-  'give them the payment_url.'
+  'give them the payment_url. If the homeowner asks to be called or notified when the quotes are ready, ' +
+  'ask for their phone number and call notify_me: Quote Desk phones them when every quote is final.'
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',

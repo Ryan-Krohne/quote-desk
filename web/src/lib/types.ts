@@ -24,6 +24,11 @@ export type Business = {
   name: string
   trade: string
   service_zip_codes: string[]
+  tagline: string | null
+  description: string | null
+  city: string | null
+  services: string[]
+  founded_year: number | null
 }
 
 export type Job = {

@@ -61,7 +61,10 @@ export default function DashboardPage() {
       <Card className="mx-auto max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Owner sign-in</CardTitle>
-          <CardDescription>Sign in to set your prices and answer questions from your desk.</CardDescription>
+          <CardDescription>
+            For business owners: sign in to set your prices and answer questions from your desk. Demo owner logins are in
+            our submission. Homeowners don&apos;t need an account here; they use Claude.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <SignInForm />

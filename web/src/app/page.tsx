@@ -1,5 +1,9 @@
 import {
   ArrowRightIcon,
+  CreditCardIcon,
+  PhoneCallIcon,
+  StoreIcon,
+  MonitorPlayIcon,
   BotIcon,
   CameraIcon,
   CheckCircle2Icon,
@@ -25,7 +29,7 @@ const rise = "animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-
 const STATS = [
   { value: "~50%", label: "of businesses gave Google's AI caller no price at all" },
   { value: "0", label: "site visits needed before a firm quote" },
-  { value: "5", label: "MCP tools any agent can call" },
+  { value: "6", label: "MCP tools any agent can call" },
 ]
 
 const STEPS = [
@@ -51,7 +55,8 @@ const TOOLS = [
   { name: "submit_job", body: "Create a job packet; returns the missing facts" },
   { name: "request_quotes", body: "Send the job to every desk in the ZIP code" },
   { name: "get_quotes", body: "Prices, reasons, conditions and status for each quote" },
-  { name: "book_quote", body: "Book a quote and get a Stripe deposit link" },
+  { name: "book_quote", body: "Book a quote and get a Stripe payment link" },
+  { name: "notify_me", body: "Phone the homeowner when every quote is in" },
 ]
 
 export default function Home() {
@@ -61,6 +66,8 @@ export default function Home() {
       <Stats />
       <HowItWorks />
       <Tools />
+      <CallAndPay />
+      <Explore />
       <Connect />
     </div>
   )
@@ -93,8 +100,8 @@ function Hero() {
           <Button size="lg" className="h-11 px-5 text-base" nativeButton={false} render={<Link href="/board" />}>
             See the live quote board <ArrowRightIcon />
           </Button>
-          <Button size="lg" variant="outline" className="h-11 bg-background/70 px-5 text-base" nativeButton={false} render={<Link href="/dashboard" />}>
-            I&apos;m a business owner
+          <Button size="lg" variant="outline" className="h-11 bg-background/70 px-5 text-base" nativeButton={false} render={<Link href="/businesses" />}>
+            Browse businesses
           </Button>
         </div>
       </div>
@@ -110,7 +117,7 @@ function ChatMock() {
   const quotes = [
     { name: "Blue Line Plumbing", range: "$1,940 – $2,390", note: "Haul-away $90", best: true },
     { name: "Old Town Water Heaters", range: "$1,950 – $2,400", note: "Owner answered by voice", asked: true },
-    { name: "Northside Plumbing & Heating", range: "$2,150 – $2,750", note: "Permit $150" },
+    { name: "Northside Plumbing & Heating", range: "$2,400 – $3,000", note: "Owner added an expansion tank" },
   ]
 
   return (
@@ -176,8 +183,8 @@ function ChatMock() {
           </div>
 
           <p className="text-muted-foreground">
-            Blue Line is the best value: lowest total, and haul-away is included in the range. Want me to book it with a $50
-            deposit?
+            Blue Line is the best value: lowest total, with haul-away itemized. Want me to book it? You&apos;d pay $2,510: the
+            $2,390 not-to-exceed price plus a $120 Quote Desk fee.
           </p>
         </div>
       </div>
@@ -258,6 +265,60 @@ function Connect() {
           <code className="truncate font-mono text-sm text-zinc-200">{MCP_URL}</code>
           <CopyButton value={MCP_URL} />
         </div>
+      </div>
+    </section>
+  )
+}
+
+function CallAndPay() {
+  const steps = [
+    { icon: PhoneCallIcon, title: "We call you back", body: "Ask Claude to call you when the quotes are in. Quote Desk phones you and reads the best quote." },
+    { icon: CreditCardIcon, title: "Press 1 to book", body: "We text you a Stripe link for the quote's not-to-exceed price plus a 5% Quote Desk service fee." },
+    { icon: CheckCircle2Icon, title: "Paid and booked", body: "The payment marks the booking paid, and the live board shows it. Test mode only: no real money moves." },
+  ]
+  return (
+    <section className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-3xl font-semibold tracking-tight">Close the deal without the chat</h2>
+        <p className="max-w-2xl text-muted-foreground">
+          Quote Desk earns a small service fee on each booking. The business keeps its price; the homeowner sees both
+          lines before paying.
+        </p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {steps.map(({ icon: Icon, title, body }) => (
+          <div key={title} className="flex flex-col gap-3 rounded-2xl border p-6">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-sky-500 to-violet-500 text-white">
+              <Icon className="size-5" />
+            </div>
+            <h3 className="font-semibold">{title}</h3>
+            <p className="text-sm text-muted-foreground">{body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Explore() {
+  const links = [
+    { href: "/board", icon: MonitorPlayIcon, title: "Live quote board", body: "The newest job and every desk's quote, updating live. No sign-in." },
+    { href: "/businesses", icon: StoreIcon, title: "Businesses", body: "Every business with a desk, and the exact rules each one prices from." },
+    { href: "/dashboard", icon: MicIcon, title: "Owner dashboard", body: "Where owners speak their prices and answer their desk's questions. Demo login in our submission." },
+  ]
+  return (
+    <section className="flex flex-col gap-6">
+      <h2 className="text-3xl font-semibold tracking-tight">Look around</h2>
+      <div className="grid gap-4 md:grid-cols-3">
+        {links.map(({ href, icon: Icon, title, body }) => (
+          <Link key={href} href={href} className="group flex flex-col gap-2 rounded-2xl border p-6 transition hover:-translate-y-1 hover:shadow-lg">
+            <Icon className="size-6 text-sky-600" />
+            <h3 className="flex items-center gap-1 font-semibold">
+              {title} <ArrowRightIcon className="size-4 transition group-hover:translate-x-0.5" />
+            </h3>
+            <p className="text-sm text-muted-foreground">{body}</p>
+          </Link>
+        ))}
       </div>
     </section>
   )

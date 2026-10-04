@@ -16,12 +16,15 @@ export function SiteHeader() {
         <Link href="/" aria-label="Quote Desk home">
           <Logo />
         </Link>
-        <nav className="flex gap-4 text-sm text-muted-foreground">
-          <Link href="/dashboard" className="hover:text-foreground">
-            Owner dashboard
+        <nav className="flex gap-4 overflow-x-auto text-sm whitespace-nowrap text-muted-foreground">
+          <Link href="/businesses" className="hover:text-foreground">
+            Businesses
           </Link>
           <Link href="/board" className="hover:text-foreground">
-            Quote board
+            Live quote board
+          </Link>
+          <Link href="/dashboard" className="hover:text-foreground">
+            For business owners
           </Link>
         </nav>
         {session && (
